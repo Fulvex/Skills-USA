@@ -1,5 +1,9 @@
 package org.firstinspires.ftc.teamcode;
 
+import com.acmerobotics.dashboard.FtcDashboard;
+import com.acmerobotics.dashboard.config.Config;
+import com.acmerobotics.dashboard.telemetry.MultipleTelemetry;
+import com.arcrobotics.ftclib.controller.PIDController;
 import com.qualcomm.robotcore.eventloop.opmode.LinearOpMode;
 import com.qualcomm.robotcore.eventloop.opmode.TeleOp;
 import com.qualcomm.robotcore.hardware.DcMotorEx;
@@ -15,8 +19,18 @@ import org.openftc.easyopencv.OpenCvCameraRotation;
 import org.openftc.easyopencv.OpenCvPipeline;
 import org.openftc.easyopencv.OpenCvWebcam;
 
+@Config
 @TeleOp(name = "Refined Servo Control", group = "TeleOp")
 public class DriveTrainPOV extends LinearOpMode {
+    private PIDController controller;
+
+    public static double p = 0, i = 0, d = 0;
+    public static double f = -0.1;
+
+    public static int target = 0;
+
+    private final double ticks_in_degree = 700 / 180.0;
+
     // Declare hardware components
     private DcMotorEx frontLeft, frontRight, backLeft, backRight, armMotor;
     private Servo clawServo;
@@ -34,6 +48,9 @@ public class DriveTrainPOV extends LinearOpMode {
 
     @Override
     public void runOpMode() {
+        controller = new PIDController(p, i, d);
+        telemetry = new MultipleTelemetry(telemetry, FtcDashboard.getInstance().getTelemetry());
+
         // Initialize motors
         frontLeft = hardwareMap.get(DcMotorEx.class, "frontLeftMotor");
         frontRight = hardwareMap.get(DcMotorEx.class, "frontRightMotor");
@@ -80,6 +97,19 @@ public class DriveTrainPOV extends LinearOpMode {
         waitForStart();
 
         while (opModeIsActive()) {
+            controller.setPID(p, i, d);
+            int armPos = armMotor.getCurrentPosition();
+            double pid = controller.calculate(armPos, target);
+            double ff = Math.cos(Math.toRadians(target/ ticks_in_degree)) * f;
+
+            double power = pid + ff;
+
+            armMotor.setPower(power);
+
+            telemetry.addData("pos ", armPos);
+            telemetry.addData("target ", target);
+            telemetry.update();
+
             // Read joystick inputs
             double forward = gamepad1.left_stick_y;
             double turn = -gamepad1.right_stick_x;
